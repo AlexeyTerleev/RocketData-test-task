@@ -1,80 +1,95 @@
 from bs4 import BeautifulSoup
 import requests
-import urllib.request
-from requests_html import HTMLSession
 import json
 import re
+import asyncio
+import aiohttp
 
 
-def get_info(url: str) -> list:
+location = []
+clinics = {}
 
-    page = requests.get(url)
-    soup = BeautifulSoup(page.text, "html.parser")
-    script = soup.find(id="jet-engine-frontend-js-extra")
-    dct_str = re.search('var JetEngineSettings=({.+})', script.text).group(1)
-    dct = json.loads(dct_str)
 
-    result = []
-    page_num = 1
+async def get_page_data(session, url):
+    async with session.get(url=url) as response:
+        soup = BeautifulSoup(await response.text(), "html.parser")
+        script = soup.find(id="jet-engine-frontend-js-extra")
 
-    # while True:
-        # print(page_num)
-    endpoint = dct["ajaxlisting"]
-    header = {
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-    }
-    query = (f'action=jet_engine_ajax&handler=get_listing&'
-             f'page_settings%5Bpost_id%5D=5883&'
-             f'page_settings%5Bqueried_id%5D=344706%7CWP_Post&'
-             f'page_settings%5Belement_id%5D=c1b6043&'
-             f'page_settings%5Bpage%5D={page_num}&listing_type=elementor&isEditMode=false')
-    response = requests.post(endpoint, headers=header, data=query)
-    # page_num += 1
-    # if not response:
-    #     break
-    parsed = json.loads(response.text)
+        dct_str = re.search('var JetEngineSettings=({.+})', script.text).group(1)
+        dct = json.loads(dct_str)
 
-    # print(json.dumps(parsed, indent=4))
+        endpoint = dct["ajaxlisting"]
+        header = {
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        }
+        query = (f'action=jet_engine_ajax&handler=get_listing&'
+                 f'page_settings%5Bpost_id%5D=5883&'
+                 f'page_settings%5Bqueried_id%5D=1288%7CWP_Post&'
+                 f'page_settings%5Belement_id%5D=c1b6043&'
+                 f'page_settings%5Bpage%5D=1&listing_type=elementor')
+        response = requests.post(endpoint, headers=header, data=query)
 
-    html = parsed["data"]["html"]
-    soup = BeautifulSoup(html, "html.parser")
-    all_items = soup.find_all("div", class_="jet-listing-grid__item")
-    for item in all_items:
+        parsed = json.loads(response.text)
 
-        idx = item["data-post-id"]
-        name = item.find("h3", class_="elementor-heading-title").text
+        html = parsed["data"]["html"]
+        soup = BeautifulSoup(html, "html.parser")
+        all_items = soup.find_all("div", class_="jet-listing-grid__item")
+        for item in all_items:
 
-        address, phones, working_hours = [x.text for x in
-                                          item.find_all("div", class_="jet-listing-dynamic-field__content")]
-        phones = [x.strip() for x in re.search('.+: (.+)', phones).group(1).split("\n") if x.strip() != ""]
-        working_hours = [x.strip() for x in working_hours.split("\n") if x.strip() != ""]
-        result.append(
-            {
-                "id": idx,
+            idx = item["data-post-id"]
+
+            if clinics.get(idx, 0):
+                continue
+
+            name = item.find("h3", class_="elementor-heading-title").text
+
+            address, phones, working_hours = [x.text for x in
+                                              item.find_all("div", class_="jet-listing-dynamic-field__content")]
+            phones = [x.strip() for x in re.search('.+: (.+)', phones).group(1).split("\n") if x.strip() != ""]
+            working_hours = [x.strip() for x in working_hours.split("\n") if x.strip() != ""]
+            clinics[idx] = {
                 "name": name,
                 "address": address,
                 "phones": phones,
                 "working_hours": working_hours,
             }
-        )
 
-    return result
+    print(f"[INFO] URL {url} - COMPLETED")
 
 
-def get_location(url: str) -> None:
-    page = requests.get(url)
-    soup = BeautifulSoup(page.text, "html.parser")
-    data = soup.find_all("div", class_="google-provider")
-    dct_str = data[0]["data-markers"]
-    dct = json.loads(dct_str)
-    return dct
+async def get_locations(session, url):
+    global location
+    async with session.get(url=url) as response:
+        soup = BeautifulSoup(await response.text(), "html.parser")
+        data = soup.find_all("div", class_="google-provider")
+        data = data[0]["data-markers"]
+        location = json.loads(data)
+    print(f"[INFO] COLLECT LOCATIONS - COMPLETED")
+
+
+async def gather_data():
+    main_url = "https://dentalia.com/"
+    async with aiohttp.ClientSession() as session:
+        response = await session.get(url=main_url)
+        soup = BeautifulSoup(await response.text(), "html.parser")
+        urls = [x["id"] for x in soup.find_all("section", class_="LinkToClinic")]
+        tasks = [asyncio.create_task(get_page_data(session, url)) for url in urls]
+        tasks.append(asyncio.create_task(get_locations(session, "https://dentalia.com/clinica/")))
+        await asyncio.gather(*tasks)
 
 
 def main():
-    url = 'https://dentalia.com/clinica/'
-    get_info(url)
-    print()
-    get_location(url)
+
+    asyncio.run(gather_data())
+
+    for loc in location:
+        try:
+            clinics[str(loc['id'])]['latlon'] = [float(loc['latLang']['lat']), float(loc['latLang']['lng'])]
+        except KeyError:
+            print(f"[ERROR] ID {loc['id']} - NOT FOUND")
+
+    with open("dentalia.json", "w") as file:
+        file.write(json.dumps(list(clinics.values()), indent=4, ensure_ascii=False))
 
 
 if __name__ == '__main__':
