@@ -54,7 +54,7 @@ async def get_page_data(session, url):
                 "working_hours": working_hours,
             }
 
-    print(f"[INFO] URL {url} - COMPLETED")
+    print(f"[INFO] url {url} - completed")
 
 
 async def get_locations(session, url):
@@ -64,7 +64,7 @@ async def get_locations(session, url):
         data = soup.find_all("div", class_="google-provider")
         data = data[0]["data-markers"]
         location = json.loads(data)
-    print(f"[INFO] COLLECT LOCATIONS - COMPLETED")
+    print(f"[INFO] collecting locations - completed")
 
 
 async def gather_data():
@@ -86,7 +86,7 @@ def main():
         try:
             clinics[str(loc['id'])]['latlon'] = [float(loc['latLang']['lat']), float(loc['latLang']['lng'])]
         except KeyError:
-            print(f"[ERROR] ID {loc['id']} - NOT FOUND")
+            print(f"[ERROR] id {loc['id']} - not found")
 
     with open("dentalia.json", "w") as file:
         file.write(json.dumps(list(clinics.values()), indent=4, ensure_ascii=False))
