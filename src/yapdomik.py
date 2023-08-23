@@ -1,5 +1,4 @@
 from bs4 import BeautifulSoup
-import requests
 import json
 import re
 import asyncio
@@ -92,9 +91,9 @@ async def gather_data():
         await asyncio.gather(*tasks)
 
 
-def main():
+def main(path="./data"):
     asyncio.run(gather_data())
-    with open("yapdomik.json", "w") as file:
+    with open(f"{path}/yapdomik.json", "w") as file:
         file.write(json.dumps(result, indent=4, ensure_ascii=False))
 
 

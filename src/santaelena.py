@@ -1,5 +1,4 @@
 from bs4 import BeautifulSoup
-import requests
 import json
 import re
 from datetime import datetime
@@ -10,15 +9,47 @@ import aiohttp
 result = []
 
 
+async def get_coords(session, url):
+    async with session.get(url=url) as response:
+        soup = BeautifulSoup(await response.text(), "html.parser")
+        if url is None:
+            return {}
+        info = soup.find_all("script")
+        data = None
+        for line in info:
+            try:
+                data = re.search('.+pageData = "(\[.+\])"', line.text).group(1)
+                break
+            except AttributeError:
+                ...
+        data = data.replace("\\", "")
+        data = json.loads(data)
+        data = data[1][6][0][4]
+        coords = {}
+        for d in data:
+            try:
+                coords[d[5][0][0].lower().replace("punto de venta", "").strip()] = d[4][0][1]
+            except IndexError:
+                ...
+        return coords
+
+
 async def get_page_data(session, url):
     async with session.get(url=url) as response:
         soup = BeautifulSoup(await response.text(), "html.parser")
+        maps_url = soup.select("a.elementor-button.elementor-button-link")
+        try:
+            maps_url = maps_url[0]["href"]
+        except IndexError:
+            maps_url = None
+        cords_dict = await get_coords(session, maps_url)
         rows = soup.select("div.elementor-container.elementor-column-gap-default")
         for row in rows:
             cols = row.select("div.elementor-column-wrap.elementor-element-populated")
             for col in cols:
                 try:
                     name = col.find_all("h3", class_="elementor-heading-title")[0].text
+                    name = name.replace("\n", " ").strip()
                     info = col.select("div.elementor-text-editor.elementor-clearfix")[0].text.strip()
                     info = info.replace("\n", " ")
                     regex = r"Dirección:(.+)Teléfono:(.+)Horario de atención:(.+)"
@@ -65,11 +96,20 @@ async def get_page_data(session, url):
                     except AttributeError:
                         working_hours = None
 
+                    cords = None
+                    for key, value in cords_dict.items():
+                        first = key.replace(" ", "").replace("-", "")
+                        second = name.lower().replace(" ", "")
+                        if first in second or second in first:
+                            cords = value
+                    if cords is None:
+                        print(f"[ERROR] ({name}) cords not found")
+
                     result.append(
                         {
                             "name": name,
                             "address": address,
-                            "latlon": None,
+                            "latlon": cords,
                             "phones": phones,
                             "working_hours": working_hours,
                         }
@@ -91,9 +131,9 @@ async def gather_data():
         await asyncio.gather(*tasks)
 
 
-def main():
+def main(path="./data"):
     asyncio.run(gather_data())
-    with open("santaelena.json", "w") as file:
+    with open(f"{path}/santaelena.json", "w") as file:
         file.write(json.dumps(result, indent=4, ensure_ascii=False))
 
 

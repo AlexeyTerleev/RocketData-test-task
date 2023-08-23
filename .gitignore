@@ -1,4 +1,6 @@
 venv/
 .idea/
+*__pycache__/
 dentalia.json
 yapdomik.json
+santaelena.json

@@ -14,7 +14,6 @@ async def get_page_data(session, url):
     async with session.get(url=url) as response:
         soup = BeautifulSoup(await response.text(), "html.parser")
         script = soup.find(id="jet-engine-frontend-js-extra")
-
         dct_str = re.search('var JetEngineSettings=({.+})', script.text).group(1)
         dct = json.loads(dct_str)
 
@@ -78,7 +77,7 @@ async def gather_data():
         await asyncio.gather(*tasks)
 
 
-def main():
+def main(path="./data"):
 
     asyncio.run(gather_data())
 
@@ -88,7 +87,7 @@ def main():
         except KeyError:
             print(f"[ERROR] id {loc['id']} - not found")
 
-    with open("dentalia.json", "w") as file:
+    with open(f"{path}/dentalia.json", "w") as file:
         file.write(json.dumps(list(clinics.values()), indent=4, ensure_ascii=False))
 
 
