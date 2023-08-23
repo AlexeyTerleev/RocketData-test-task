@@ -103,7 +103,7 @@ async def get_page_data(session, url):
                         if first in second or second in first:
                             cords = value
                     if cords is None:
-                        print(f"[ERROR] ({name}) cords not found")
+                        print(f"[ERROR] ({name}) coords not found")
 
                     result.append(
                         {
@@ -132,10 +132,11 @@ async def gather_data():
 
 
 def main(path="./data"):
+    print(f"[INFO] starting collecting (santaelena)")
     asyncio.run(gather_data())
     with open(f"{path}/santaelena.json", "w") as file:
         file.write(json.dumps(result, indent=4, ensure_ascii=False))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

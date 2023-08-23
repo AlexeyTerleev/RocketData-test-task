@@ -24,15 +24,15 @@ async def get_page_data(session, url):
 
 def get_working_hours(working_hours):
     days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
-    working_hours = [x for x in working_hours if x['type'] == "default"]
+    working_hours = [x for x in working_hours if x["type"] == "default"]
     dct = {}
     for line in working_hours:
         try:
-            start = line['from'] // 60 % 24
-            end = line['to'] // 60 % 24
-            start_after_dot = line['from'] % 60
-            end_after_dot = line['to'] % 60
-            dct[line['day']] = (
+            start = line["from"] // 60 % 24
+            end = line["to"] // 60 % 24
+            start_after_dot = line["from"] % 60
+            end_after_dot = line["to"] % 60
+            dct[line["day"]] = (
                     f"{start if start > 9 else '0' + str(start)}:{start_after_dot if start_after_dot else '00'} - "
                     f"{end if end > 9 else '0' + str(end)}:{end_after_dot if end_after_dot else '00'}"
             )
@@ -76,7 +76,7 @@ async def get_city_data(session, city_name):
         "working_hours": get_working_hours(shop["workingHours"])
     } for shop in shops]
 
-    print(f"[INFO] city {city_name['name']} completed")
+    print(f"[INFO] url https://{city_name['translitAlias']}.yapdomik.ru - completed")
 
 
 async def gather_data():
@@ -92,10 +92,11 @@ async def gather_data():
 
 
 def main(path="./data"):
+    print(f"[INFO] starting collecting (yapdomik)")
     asyncio.run(gather_data())
     with open(f"{path}/yapdomik.json", "w") as file:
         file.write(json.dumps(result, indent=4, ensure_ascii=False))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

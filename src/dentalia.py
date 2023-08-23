@@ -14,7 +14,7 @@ async def get_page_data(session, url):
     async with session.get(url=url) as response:
         soup = BeautifulSoup(await response.text(), "html.parser")
         script = soup.find(id="jet-engine-frontend-js-extra")
-        dct_str = re.search('var JetEngineSettings=({.+})', script.text).group(1)
+        dct_str = re.search("var JetEngineSettings=({.+})", script.text).group(1)
         dct = json.loads(dct_str)
 
         endpoint = dct["ajaxlisting"]
@@ -78,12 +78,12 @@ async def gather_data():
 
 
 def main(path="./data"):
-
+    print(f"[INFO] starting collecting (dentilia)")
     asyncio.run(gather_data())
 
     for loc in location:
         try:
-            clinics[str(loc['id'])]['latlon'] = [float(loc['latLang']['lat']), float(loc['latLang']['lng'])]
+            clinics[str(loc["id"])]["latlon"] = [float(loc["latLang"]["lat"]), float(loc["latLang"]["lng"])]
         except KeyError:
             print(f"[ERROR] id {loc['id']} - not found")
 
@@ -91,5 +91,5 @@ def main(path="./data"):
         file.write(json.dumps(list(clinics.values()), indent=4, ensure_ascii=False))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
