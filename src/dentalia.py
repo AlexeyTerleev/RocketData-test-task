@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from bs4 import BeautifulSoup
 import requests
 import json
@@ -8,6 +10,18 @@ import aiohttp
 
 location = []
 clinics = {}
+
+
+def transform_time(time: str) -> str:
+    if "am" in time or "pm" in time:
+        try:
+            in_time = datetime.strptime(time.upper(), "%I%p")
+        except ValueError:
+            in_time = datetime.strptime(time.upper(), "%I:%M%p")
+        time = str(datetime.strftime(in_time, "%H:%M"))
+    elif len(time) != 5:
+        time = '0' + time
+    return time
 
 
 async def get_page_data(session, url):
@@ -48,16 +62,24 @@ async def get_page_data(session, url):
             phones = [x.strip() for x in re.search('.+: (.+)', phones).group(1).split("\n") if x.strip() != ""]
 
             replace_dct = (("horario:", ""),
-                           ("lunes", "mon"), ("martes", "tue"), ("miércoles", "wen"), ("jueves", "thu"),
-                           ("viernes", "fri"), ("sábado", "sat"), ("domingo", "sun"),
-                           ("lun", "mon"), ("mar", "tue"), ("mie", "wen"), ("jue", "thu"), ("vie", "fri"),
-                           ("sáb", "sat"), ("dom", "sun"),
-                           (" a ", " - "), (" & ", " and "), (" y ", " and "))
+                           ("lunes", "MON"), ("martes", "TUE"), ("miércoles", "WEN"), ("jueves", "THU"),
+                           ("viernes", "FRI"), ("sábado", "SAT"), ("domingo", "SUN"),
+                           ("lun", "MON"), ("mar", "TUE"), ("mie", "WEN"), ("jue", "THU"), ("vie", "FRI"),
+                           ("sáb", "SAT"), ("dom", "SUN"),
+                           ("l", "MON"), ("j", "thu"), ("v", "FRI"), ("s", "SAT"), ("d", "SUN"),
+                           (" a ", " - "), (" & ", " - "), (" y ", " - "))
             working_hours = working_hours.lower()
             for old, new in replace_dct:
                 working_hours = working_hours.replace(old, new)
-            working_hours = [x.strip() for x in working_hours.split("\n") if x.strip() != ""]
-            working_hours = [" ".join(y.strip() for y in x.split(":", 1)) for x in working_hours]
+
+            tmp_working_hours = [x.replace(" ", "").strip() for x in working_hours.split("\n") if x.strip() != ""]
+            working_hours = []
+            regex = r"([MONTUEWENTHUFRISATSUN-]+):?([\dapm:]+)[-:]([\dapm:]+)"
+            for days_time in tmp_working_hours:
+                match = re.search(regex, days_time)
+                days, start, end = match.group(1), match.group(2), match.group(3)
+                working_hours.append(f"{days.lower()} {transform_time(start)} - {transform_time(end)}")
+
             clinics[idx] = {
                 "name": name,
                 "address": address,
