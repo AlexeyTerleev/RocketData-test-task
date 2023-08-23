@@ -44,8 +44,20 @@ async def get_page_data(session, url):
 
             address, phones, working_hours = [x.text for x in
                                               item.find_all("div", class_="jet-listing-dynamic-field__content")]
+
             phones = [x.strip() for x in re.search('.+: (.+)', phones).group(1).split("\n") if x.strip() != ""]
+
+            replace_dct = (("horario:", ""),
+                           ("lunes", "mon"), ("martes", "tue"), ("miércoles", "wen"), ("jueves", "thu"),
+                           ("viernes", "fri"), ("sábado", "sat"), ("domingo", "sun"),
+                           ("lun", "mon"), ("mar", "tue"), ("mie", "wen"), ("jue", "thu"), ("vie", "fri"),
+                           ("sáb", "sat"), ("dom", "sun"),
+                           (" a ", " - "), (" & ", " and "), (" y ", " and "))
+            working_hours = working_hours.lower()
+            for old, new in replace_dct:
+                working_hours = working_hours.replace(old, new)
             working_hours = [x.strip() for x in working_hours.split("\n") if x.strip() != ""]
+            working_hours = [" ".join(y.strip() for y in x.split(":", 1)) for x in working_hours]
             clinics[idx] = {
                 "name": name,
                 "address": address,
